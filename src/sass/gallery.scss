@@ -1,0 +1,23 @@
+.gallery {
+  margin-top: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-evenly;
+}
+
+.photo-card {
+  margin: 10px;
+  border: solid 1px #adadad;
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+  height: 200px;
+}
+.info {
+  display: flex;
+}
