@@ -1,81 +1,112 @@
-import NewsApiService from './newsApiService';
+import ApiService from './apiService';
 import Notiflix from 'notiflix';
+import SimpleLightbox from 'simplelightbox';
+import 'simplelightbox/dist/simple-lightbox.min.css';
 
 const searchForm = document.querySelector('.search-form');
 const loadMoreButton = document.querySelector('.load-more');
 const gallery = document.querySelector('.gallery');
 
-const newsApiService = new NewsApiService();
+const apiService = new ApiService();
 
 searchForm.addEventListener('submit', onFormSearch);
 loadMoreButton.addEventListener('click', onLoadMore);
 
-function onFormSearch(e) {
-  e.preventDefault();
-  newsApiService
-    .fetchTotalHits()
-    .then(data =>
-      Notiflix.Notify.success(`Hooray! We found ${data.totalHits} images.`)
-    );
-  newsApiService.inputValue = e.currentTarget.elements.searchQuery.value;
-  newsApiService.resetPage();
-  newsApiService
-    .fetchArticles()
-    .then(render)
-    .catch(error => console.log(error));
+async function onFormSearch(e) {
+  try {
+    e.preventDefault();
+    cleaningPage();
+
+    apiService.inputValue = e.currentTarget.elements.searchQuery.value;
+    apiService.resetPage();
+
+    const data = await apiService.fetchImages();
+    const images = await data.hits;
+
+    if (images.length) {
+      Notiflix.Notify.success(`Hooray! We found ${data.totalHits} images.`);
+    }
+
+    render(images);
+  } catch (error) {
+    console.log(error);
+  }
 }
 
-function onLoadMore() {
-  newsApiService.fetchArticles().then(render);
-  newsApiService.fetchTotalHits().then(totalHits);
-}
+async function onLoadMore() {
+  try {
+    const data = await apiService.fetchImages();
+    const images = await data.hits;
+    render(images);
+    pageScrolling();
 
-function totalHits(data) {
-  const totalHits = data.totalHits;
-  const lengthOfArrayOfImages = data.hits.length;
-  console.log(newsApiService.getCurrentPage());
-
-  if (
-    newsApiService.getCurrentPage() ===
-    Math.ceil(totalHits / lengthOfArrayOfImages)
-  ) {
-    loadMoreButton.style.display = 'none';
-    Notiflix.Notify.info(
-      "We're sorry, but you've reached the end of search results."
-    );
+    const totalHits = await data.totalHits;
+    if (apiService.getCurrentPage() === Math.ceil(totalHits / images.length)) {
+      loadMoreButton.style.display = 'none';
+      Notiflix.Notify.info(
+        "We're sorry, but you've reached the end of search results."
+      );
+    }
+  } catch (error) {
+    console.log(error);
   }
 }
 
 function render(images) {
   if (!images.length) {
-    gallery.innerHTML = '';
+    loadMoreButton.style.display = 'none';
+    cleaningPage();
+
     Notiflix.Notify.failure(
       'Sorry, there are no images matching your search query. Please try again.'
     );
     return;
   }
-  loadMoreButton.style.display = 'flex';
 
   const markup = images
     .map(image => {
       return `<div class="photo-card">
-    <img src="${image.webformatURL}" alt="${image.tags}" loading="lazy" class="gallery__image" />
+      <a href="${image.largeImageURL}">
+    <img src="${image.webformatURL}" alt="${image.tags}" loading="lazy" class="gallery__image" /> </a>
     <div class="info">
       <p class="info-item">
-        <b>Likes ${image.likes}</b>
+        <b>Likes <span class="info-number">${image.likes}</span> </b>
       </p>
       <p class="info-item">
-        <b>Views ${image.views}</b>
+        <b>Views <span class="info-number">${image.views}</span> </b>
       </p>
       <p class="info-item">
-        <b>Comments ${image.comments}</b>
+        <b>Comments <span class="info-number">${image.comments}</span></b>
       </p>
       <p class="info-item">
-        <b>Downloads ${image.downloads}</b>
+        <b>Downloads <span class="info-number">${image.downloads}</span </b>
       </p>
     </div>
   </div>`;
     })
     .join('');
-  return (gallery.innerHTML = markup);
+
+  gallery.insertAdjacentHTML('beforeend', markup);
+
+  loadMoreButton.style.display = 'flex';
+
+  let galleryLightBox = new SimpleLightbox('.photo-card a', {
+    captionDelay: 250,
+  });
+  galleryLightBox.refresh();
+}
+
+function pageScrolling() {
+  const { height: cardHeight } = document
+    .querySelector('.gallery')
+    .firstElementChild.getBoundingClientRect();
+
+  window.scrollBy({
+    top: cardHeight * 2,
+    behavior: 'smooth',
+  });
+}
+
+function cleaningPage() {
+  gallery.innerHTML = '';
 }
