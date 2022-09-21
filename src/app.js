@@ -16,8 +16,15 @@ async function onFormSearch(e) {
   try {
     e.preventDefault();
     cleaningPage();
+    loadMoreButton.style.display = 'none';
 
-    apiService.inputValue = e.currentTarget.elements.searchQuery.value;
+    const searchQuery = e.currentTarget.elements.searchQuery.value;
+    if (!searchQuery) {
+      Notiflix.Notify.info('Please type something!');
+      loadMoreButton.style.display = 'none';
+      return;
+    }
+    apiService.query = searchQuery;
     apiService.resetPage();
 
     const data = await apiService.fetchImages();
@@ -28,6 +35,15 @@ async function onFormSearch(e) {
     }
 
     render(images);
+
+    if (!images.length) {
+      cleaningPage();
+      Notiflix.Notify.failure(
+        'Sorry, there are no images matching your search query. Please try again.'
+      );
+      loadMoreButton.style.display = 'none';
+      return;
+    }
   } catch (error) {
     console.log(error);
   }
@@ -40,12 +56,28 @@ async function onLoadMore() {
     render(images);
     pageScrolling();
 
-    const totalHits = await data.totalHits;
-    if (apiService.getCurrentPage() === Math.ceil(totalHits / images.length)) {
+    if (
+      apiService.getCurrentPage() === Math.ceil(data.totalHits / images.length)
+    ) {
       loadMoreButton.style.display = 'none';
       Notiflix.Notify.info(
         "We're sorry, but you've reached the end of search results."
       );
+      return;
+    }
+    if (!images.length) {
+      Notiflix.Notify.info(
+        "We're sorry, but you've reached the end of search results."
+      );
+      loadMoreButton.style.display = 'none';
+      return;
+    }
+    if (apiService.hits > apiService.totalHits) {
+      Notiflix.Notify.info(
+        "We're sorry, but you've reached the end of search results."
+      );
+      loadMoreButton.style.display = 'none';
+      return;
     }
   } catch (error) {
     console.log(error);
@@ -53,16 +85,6 @@ async function onLoadMore() {
 }
 
 function render(images) {
-  if (!images.length) {
-    loadMoreButton.style.display = 'none';
-    cleaningPage();
-
-    Notiflix.Notify.failure(
-      'Sorry, there are no images matching your search query. Please try again.'
-    );
-    return;
-  }
-
   const markup = images
     .map(image => {
       return `<div class="photo-card">
